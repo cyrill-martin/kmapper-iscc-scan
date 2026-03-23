@@ -328,10 +328,10 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
     # Cluster
     print(f"Clustering {len(rows)} entries …")
 
-    group_by_exact(rows, "unit_instance", "instance_group")
-    group_by_exact(rows, "unit_data", "data_group")
+    group_by_exact(rows, "iscc_instance_unit", "instance_group")
+    group_by_exact(rows, "iscc_data_unit", "data_group")
 
-    comparisons = cluster_by_similarity(rows, "unit_content", "content_cluster", threshold)
+    comparisons = cluster_by_similarity(rows, "iscc_content_unit", "content_cluster", threshold)
     print(f"  CONTENT comparisons: {comparisons:,}")
 
     n_instance = len(set(r["instance_group"] for r in rows if r["instance_group"]))

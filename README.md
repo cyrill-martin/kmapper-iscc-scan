@@ -92,6 +92,20 @@ The CSV contains one row per file. The three grouping columns follow a hierarchy
 - **`data_group`** — files with the same data structure (e.g. the same PDF re-saved with slightly different metadata, causing the raw bytes to differ). Files in the same data group are always also in the same content cluster.
 - **`content_cluster`** — files with similar content regardless of format or encoding (e.g. a `.pptx` presentation and its `.pdf` handout). This is the broadest grouping.
 
+Example:
+
+| filename                   | mediatype | instance_group | data_group | content_cluster |
+| -------------------------- | --------- | -------------- | ---------- | --------------- |
+| demo.pptx                  | pptx      | 1              | 1          | 1               |
+| demo_final.pptx            | pptx      | 1              | 1          | 1               |
+| document_v1.docx           | docx      |                |            | 1               |
+| version_basel_on-site.docx | docx      |                |            | 1               |
+| final_print-version.pdf    | pdf       |                |            | 1               |
+| screenshot.png             | png       | 2              | 2          | 2               |
+| screenshot_jira_v2.png     | png       | 2              | 2          | 2               |
+
+`demo.pptx` and `demo_final.pptx` are byte-for-byte identical despite their different names. Together with the `.docx` and `.pdf` files they form a content cluster of similar documents. The two screenshots are exact copies in a separate cluster.
+
 ### Checking the Scans
 
 Check which directories have already been scanned:
