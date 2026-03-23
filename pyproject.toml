@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kmapper-iscc-scan"
-version = "0.1.1"
+version = "0.1.2"
 description = "Workspace-based ISCC content inventory and similarity clustering tool"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,6 +13,9 @@ dependencies = [
     "iscc-sdk>=0.8.6",
     "iscc-core>=1.3.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/cyrill-martin/kmapper-iscc-scan"
 
 [project.scripts]
 kmapper-iscc-scan = "kmapper_iscc_scan.kmapper_iscc_scan:main"

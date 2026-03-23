@@ -2,6 +2,8 @@
 
 Workspace-based ISCC content inventory and similarity clustering tool.
 
+Developed by [kmapper GmbH](https://kmapper.ch) — not related to the k-means mapper algorithm from topological data analysis.
+
 ## How it works
 
 This tool is built on the [ISCC (International Standard Content Code)](https://iscc.codes), an ISO standard (ISO 24138) for content-derived, decentralized media identifiers.
@@ -48,22 +50,53 @@ pip install kmapper-iscc-scan
 
 ## Usage
 
+### Scanning
+
+Scan a directory recursively (i.e. including all subdirectories) to generate an ISCC for each relevant file and store the metadata files in your given workspace directory:
+
 ```bash
 # Scan a directory into a workspace
 kmapper-iscc-scan scan /path/to/content /path/to/workspace
+```
 
-# Optionally scan with a custom named batch
-kmapper-iscc-scan scan /path/to/content /path/to/workspace --batch myBatch
+The above command will create a default batch name for your scanned directory. You can optionally determine your own batch name with:
 
+```bash
+kmapper-iscc-scan scan /path/to/content /path/to/workspace --batch my-batch
+```
+
+### Compiling
+
+Compile all the metadata files from all your different scans into one inventory CSV file, including clustering of identical or similar files:
+
+```bash
 # Compile an inventory CSV with similarity clustering
-kmapper-iscc-scan compile /path/to/workspace # This uses a default Hamming distance of 10 (e.g. approx. 84.38%)
+kmapper-iscc-scan compile /path/to/workspace
+```
 
+The above command will use a default Hamming distance of 10 (i.e. approx. 84.38% similarity). This means files with a Hamming distance of 10 will be considered to be in a cluster of files with similar content. You can optionally set your own threshold for the Hamming distance or indicate a similarity threshold in percent:
+
+```bash
 # Optionally compile with your own threshold for the Hamming distance
-kmapper-iscc-scan compile /path/to/workspace --threshold 15
+kmapper-iscc-scan compile /path/to/workspace --threshold 15 # Hamming distance of 15
 
 # Optionally compile with your own similarity threshold given in percent
-kmapper-iscc-scan compile /path/to/workspace --similarity 90
+kmapper-iscc-scan compile /path/to/workspace --similarity 90 # Files with a similarity of 90% will be in the same content cluster
+```
 
+#### The inventory CSV
+
+The CSV contains one row per file. The three grouping columns follow a hierarchy — each level is a subset of the one below:
+
+- **`instance_group`** — files that are byte-for-byte identical (exact copies, regardless of filename or location). Files in the same instance group are always also in the same data group.
+- **`data_group`** — files with the same data structure (e.g. the same PDF re-saved with slightly different metadata, causing the raw bytes to differ). Files in the same data group are always also in the same content cluster.
+- **`content_cluster`** — files with similar content regardless of format or encoding (e.g. a `.pptx` presentation and its `.pdf` handout). This is the broadest grouping.
+
+### Checking the Scans
+
+Check which directories have already been scanned:
+
+```bash
 # Show workspace status
 kmapper-iscc-scan status /path/to/workspace
 ```
