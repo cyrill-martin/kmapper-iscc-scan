@@ -1,14 +1,14 @@
 # kmapper-iscc-scan
 
-Workspace-based ISCC content inventory and similarity clustering tool.
+Workspace-based ISCC content inventory and similarity clustering CLI.
 
-Developed by [kmapper GmbH](https://kmapper.ch) — not related to the k-means mapper algorithm from topological data analysis.
+Developed by [kmapper GmbH](https://kmapper.ch), not related to the k-means mapper algorithm from topological data analysis.
 
 ## How it works
 
-This tool is built on the [ISCC (International Standard Content Code)](https://iscc.codes), an ISO standard (ISO 24138) for content-derived, decentralized media identifiers.
+This CLI is built on the [ISCC (International Standard Content Code)](https://iscc.codes), an ISO standard (ISO 24138) for content-derived, decentralized media identifiers.
 
-**Scanning** walks a directory recursively and generates an ISCC for each supported file. The ISCC encodes information about the file's content — not just its name or hash — so two files with different names but identical content will produce the same code. Each result is written as a sidecar `.iscc.json` file next to (or mirroring) the original file in the workspace.
+**Scanning** walks a directory recursively and generates an ISCC for each supported file. The ISCC encodes information about the file's content (not just its name or hash) so two files with different names but identical content will produce the same code. Each result is written as a sidecar `.iscc.json` file next to (or mirroring) the original file in the workspace.
 
 **Compiling** aggregates all sidecar files from all scans into a single CSV inventory. It uses the Content Unit embedded in each ISCC to cluster files by similarity via Hamming distance. The result lets you identify:
 
@@ -20,7 +20,7 @@ This tool is built on the [ISCC (International Standard Content Code)](https://i
 ### 1. Check your Python version
 
 ```bash
-python3 --version
+python --version
 ```
 
 You need **Python 3.12 or higher**. If the command is not found or the version is too old, see below.
@@ -74,14 +74,14 @@ Compile all the metadata files from all your different scans into one inventory 
 kmapper-iscc-scan compile /path/to/workspace
 ```
 
-The above command will use a default Hamming distance of 10 (i.e. approx. 84.38% similarity). This means files with a Hamming distance of 10 will be considered to be in a cluster of files with similar content. You can optionally set your own threshold for the Hamming distance or indicate a similarity threshold in percent:
+The above command will use a default Hamming distance of 10 (i.e. approx. 84.38% similarity). You can optionally set your own Hamming distance or indicate a similarity in percent:
 
 ```bash
-# Optionally compile with your own threshold for the Hamming distance
-kmapper-iscc-scan compile /path/to/workspace --threshold 15 # Hamming distance of 15
+# Optionally compile with your own Hamming distance
+kmapper-iscc-scan compile /path/to/workspace --hamming 15
 
-# Optionally compile with your own similarity threshold given in percent
-kmapper-iscc-scan compile /path/to/workspace --similarity 90 # Files with a similarity of 90% will be in the same content cluster
+# Optionally compile with your own similarity in percent
+kmapper-iscc-scan compile /path/to/workspace --similarity 90
 ```
 
 #### The inventory CSV
@@ -92,17 +92,17 @@ The CSV contains one row per file. The three grouping columns follow a hierarchy
 - **`data_group`** — files with the same data structure (e.g. the same PDF re-saved with slightly different metadata, causing the raw bytes to differ). Files in the same data group are always also in the same content cluster.
 - **`content_cluster`** — files with similar content regardless of format or encoding (e.g. a `.pptx` presentation and its `.pdf` handout). This is the broadest grouping.
 
-Example:
+The following example shows a selection of columns to illustrate the grouping. The actual CSV also includes batch, paths, filesize, ISCC code, and the individual ISCC units.
 
-| filename                   | mediatype | instance_group | data_group | content_cluster |
-| -------------------------- | --------- | -------------- | ---------- | --------------- |
-| demo.pptx                  | pptx      | 1              | 1          | 1               |
-| demo_final.pptx            | pptx      | 1              | 1          | 1               |
-| document_v1.docx           | docx      |                |            | 1               |
-| version_basel_on-site.docx | docx      |                |            | 1               |
-| final_print-version.pdf    | pdf       |                |            | 1               |
-| screenshot.png             | png       | 2              | 2          | 2               |
-| screenshot_jira_v2.png     | png       | 2              | 2          | 2               |
+| filename                   | mediatype | instance_group | data_group | content_cluster | hamming_threshold | similarity_threshold |
+| -------------------------- | --------- | -------------- | ---------- | --------------- | ----------------- | -------------------- |
+| demo.pptx                  | pptx      | 1              | 1          | 1               | 10                | 84.38                |
+| demo_final.pptx            | pptx      | 1              | 1          | 1               | 10                | 84.38                |
+| document_v1.docx           | docx      |                |            | 1               | 10                | 84.38                |
+| version_basel_on-site.docx | docx      |                |            | 1               | 10                | 84.38                |
+| final_print-version.pdf    | pdf       |                |            | 1               | 10                | 84.38                |
+| screenshot.png             | png       | 2              | 2          | 2               | 10                | 84.38                |
+| screenshot_jira_v2.png     | png       | 2              | 2          | 2               | 10                | 84.38                |
 
 `demo.pptx` and `demo_final.pptx` are byte-for-byte identical despite their different names. Together with the `.docx` and `.pdf` files they form a content cluster of similar documents. The two screenshots are exact copies in a separate cluster.
 

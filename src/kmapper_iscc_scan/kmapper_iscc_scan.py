@@ -237,6 +237,7 @@ def cmd_scan(source_dir: Path, workspace: Path, batch_name: str | None = None):
         sidecar_dir.mkdir(parents=True, exist_ok=True)
         meta["_source_path"] = str(rel_path)
         meta["_batch"] = batch_name
+        meta["_modified"] = datetime.fromtimestamp(filepath.stat().st_mtime, tz=timezone.utc).isoformat()
         with open(sidecar_path, "w", encoding="utf-8") as f:
             json.dump(meta, f, indent=2, ensure_ascii=False)
 
@@ -248,7 +249,7 @@ def cmd_scan(source_dir: Path, workspace: Path, batch_name: str | None = None):
     log["scans"].append({
         "source": str(source_dir),
         "batch": batch_name,
-        "scanned_at": datetime.now(timezone.utc).isoformat(),
+        "scanned": datetime.now(timezone.utc).isoformat(),
         "files_found": total,
         "files_processed": processed,
         "errors": len(errors),
@@ -287,6 +288,7 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
 
     log = load_scan_log(workspace)
     batch_to_source = {s["batch"]: s["source"] for s in log["scans"]}
+    batch_to_scanned = {s["batch"]: s["scanned"] for s in log["scans"]}
 
     for sf in sidecar_files:
         try:
@@ -307,11 +309,13 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
 
         rows.append({
             "batch": batch,
+            "scanned": batch_to_scanned.get(batch, ""),
             "source_path": source_path,
             "filename": meta.get("filename", ""),
             "absolute_path": absolute_path,
             "mediatype": meta.get("mediatype", ""),
             "filesize": meta.get("filesize", ""),
+            "modified": meta.get("_modified", ""),
             "iscc": iscc_code,
             "iscc_meta_unit": units.get("meta", ""),
             "iscc_content_unit": units.get("content", ""),
@@ -320,10 +324,14 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
             "instance_group": "",
             "data_group": "",
             "content_cluster": "",
+            "hamming_threshold": "",
+            "similarity_threshold": "",
         })
 
     if not rows:
         sys.exit("No valid sidecars found.")
+
+    similarity_pct = round((1 - threshold / CONTENT_UNIT_BITS) * 100, 2)
 
     # Cluster
     print(f"Clustering {len(rows)} entries …")
@@ -334,19 +342,22 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
     comparisons = cluster_by_similarity(rows, "iscc_content_unit", "content_cluster", threshold)
     print(f"  CONTENT comparisons: {comparisons:,}")
 
-    n_instance = len(set(r["instance_group"] for r in rows if r["instance_group"]))
-    n_data = len(set(r["data_group"] for r in rows if r["data_group"]))
-    n_content = len(set(r["content_cluster"] for r in rows if r["content_cluster"]))
+    for row in rows:
+        if row["content_cluster"]:
+            row["hamming_threshold"] = threshold
+            row["similarity_threshold"] = similarity_pct
 
     # Write CSV
     csv_path = workspace/"iscc_inventory.csv"
     csv_columns = [
         "batch",
+        "scanned",
         "source_path",
         "filename",
         "absolute_path",
         "mediatype",
         "filesize",
+        "modified",
         "iscc",
         "iscc_meta_unit",
         "iscc_content_unit",
@@ -355,6 +366,8 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
         "instance_group",
         "data_group",
         "content_cluster",
+        "hamming_threshold",
+        "similarity_threshold",
     ]
 
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -362,6 +375,10 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
+
+    n_instance = len(set(r["instance_group"] for r in rows if r["instance_group"]))
+    n_data = len(set(r["data_group"] for r in rows if r["data_group"]))
+    n_content = len(set(r["content_cluster"] for r in rows if r["content_cluster"]))
 
     print(f"\n{'=' * 60}")
     print(f"Compile complete.")
@@ -393,7 +410,7 @@ def cmd_status(workspace: Path):
     for s in log["scans"]:
         print(f"  [{s['batch']}]")
         print(f"    Source:    {s['source']}")
-        print(f"    Scanned:  {s['scanned_at']}")
+        print(f"    Scanned:  {s['scanned']}")
         print(f"    Files:    {s['files_processed']}/{s['files_found']}")
         if s.get("errors"):
             print(f"    Errors:   {s['errors']}")
@@ -425,14 +442,14 @@ def main():
     p_compile = sub.add_parser("compile", help="Compile CSV from all scanned data")
     # compile arguments
     p_compile.add_argument("workspace", type=Path, help="Workspace directory")
-    # compile accepts either --threshold or --similarity
+    # compile accepts either --hamming or --similarity
     clust = p_compile.add_mutually_exclusive_group()
-    # --threshold for hamming distance
+    # --hamming for hamming distance threshold
     clust.add_argument(
-        "--threshold", type=int, default=None,
-        help=f"Hamming distance threshold for CONTENT clustering (default: {DEFAULT_THRESHOLD})",
+        "--hamming", type=int, default=None,
+        help=f"Hamming distance for CONTENT clustering (default: {DEFAULT_THRESHOLD})",
     )
-    # --similarity for percentage
+    # --similarity for percentage threshold (e.g. 85 for 85%)
     clust.add_argument(
         "--similarity", type=float, default=None,
         help="Minimum similarity percentage for CONTENT clustering (e.g. 85 for 85%%)",
@@ -454,7 +471,7 @@ def main():
         if args.similarity is not None:
             threshold = round((1 - args.similarity / 100) * CONTENT_UNIT_BITS)
         else:
-            threshold = args.threshold if args.threshold is not None else DEFAULT_THRESHOLD
+            threshold = args.hamming if args.hamming is not None else DEFAULT_THRESHOLD
         cmd_compile(args.workspace, threshold)
 
     elif args.command == "status":
