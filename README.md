@@ -74,7 +74,7 @@ Compile all the metadata files from all your different scans into one inventory 
 kmapper-iscc-scan compile /path/to/workspace
 ```
 
-The above command will use a default Hamming distance of 10 (i.e. approx. 84.38% similarity). You can optionally set your own Hamming distance or indicate a similarity in percent:
+The above command will use a default Hamming distance of 10 (i.e. approx. 84.38% similarity). You can optionally set your own Hamming distance (0–64) or indicate a similarity in percent (0–100):
 
 ```bash
 # Optionally compile with your own Hamming distance

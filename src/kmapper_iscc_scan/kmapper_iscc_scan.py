@@ -448,12 +448,12 @@ def main():
     # --hamming for hamming distance threshold
     clust.add_argument(
         "--hamming", type=int, default=None,
-        help=f"Hamming distance for CONTENT clustering (default: {DEFAULT_THRESHOLD})",
+        help=f"Hamming distance for CONTENT clustering, 0–{CONTENT_UNIT_BITS} (default: {DEFAULT_THRESHOLD})",
     )
     # --similarity for percentage threshold (e.g. 85 for 85%)
     clust.add_argument(
         "--similarity", type=float, default=None,
-        help="Minimum similarity percentage for CONTENT clustering (e.g. 85 for 85%%)",
+        help="Minimum similarity percentage for CONTENT clustering, 0–100 (e.g. 85 for 85%%)",
     )
 
     # status ##########################
@@ -470,9 +470,15 @@ def main():
 
     elif args.command == "compile":
         if args.similarity is not None:
+            if not (0.0 <= args.similarity <= 100.0):
+                sys.exit(f"--similarity must be between 0 and 100, got {args.similarity}")
             threshold = round((1 - args.similarity / 100) * CONTENT_UNIT_BITS)
+        elif args.hamming is not None:
+            if not (0 <= args.hamming <= CONTENT_UNIT_BITS):
+                sys.exit(f"--hamming must be between 0 and {CONTENT_UNIT_BITS}, got {args.hamming}")
+            threshold = args.hamming
         else:
-            threshold = args.hamming if args.hamming is not None else DEFAULT_THRESHOLD
+            threshold = DEFAULT_THRESHOLD
         cmd_compile(args.workspace, threshold)
 
     elif args.command == "status":
