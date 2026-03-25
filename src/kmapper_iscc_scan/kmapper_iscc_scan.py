@@ -35,15 +35,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-try:
-    import iscc_sdk as idk
-except ImportError:
-    sys.exit("iscc-sdk not installed. Run: pip install iscc-sdk")
-
-try:
-    import iscc_core as ic
-except ImportError:
-    sys.exit("iscc-core not installed. Run: pip install iscc-core")
+import iscc_sdk as idk
+import iscc_core as ic
 
 
 SKIP_PREFIXES = (".", "~")
@@ -91,15 +84,16 @@ def decompose_units(iscc_code: str) -> dict:
             maintype = explanation.split("-")[0].lower()
             if maintype in units:
                 units[maintype] = part
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Warning: decompose_units failed for {iscc_code!r}: {e}", file=sys.stderr)
     return units
 
 
 def hamming_distance(iscc_a: str, iscc_b: str) -> int | None:
     try:
         return ic.iscc_distance(iscc_a, iscc_b)
-    except Exception:
+    except Exception as e:
+        print(f"Warning: hamming_distance failed for {iscc_a!r} / {iscc_b!r}: {e}", file=sys.stderr)
         return None
 
 
@@ -139,13 +133,19 @@ def cluster_by_similarity(rows: list[dict], unit_key: str, cluster_col: str,
         if ra != rb:
             parent[ra] = rb
 
+    n = len(active)
+    total_comparisons = n * (n - 1) // 2
     comparisons = 0
-    for ai in range(len(active)):
-        for bi in range(ai + 1, len(active)):
+    for ai in range(n):
+        for bi in range(ai + 1, n):
             dist = hamming_distance(active[ai][1], active[bi][1])
             comparisons += 1
             if dist is not None and dist <= threshold:
                 union(ai, bi)
+        if n > 1:
+            pct = ai / (n - 1) * 100
+            print(f"\r  CONTENT clustering: {pct:.0f}% ({comparisons:,}/{total_comparisons:,} comparisons)", end="", flush=True)
+    print()
 
     clusters = defaultdict(list)
     for ai in range(len(active)):
@@ -173,9 +173,11 @@ def cmd_scan(source_dir: Path, workspace: Path, batch_name: str | None = None):
     workspace = workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
 
-    # Determine batch name
+    # Determine batch name — always sanitize to prevent path traversal
     if not batch_name:
         batch_name = slugify(str(source_dir))
+    else:
+        batch_name = slugify(batch_name)
 
     # Check if already scanned
     log = load_scan_log(workspace)
@@ -339,8 +341,7 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
     group_by_exact(rows, "iscc_instance_unit", "instance_group")
     group_by_exact(rows, "iscc_data_unit", "data_group")
 
-    comparisons = cluster_by_similarity(rows, "iscc_content_unit", "content_cluster", threshold)
-    print(f"  CONTENT comparisons: {comparisons:,}")
+    cluster_by_similarity(rows, "iscc_content_unit", "content_cluster", threshold)
 
     for row in rows:
         if row["content_cluster"]:
