@@ -64,7 +64,7 @@ def slugify(text: str) -> str:
 def load_scan_log(workspace: Path) -> dict:
     log_path = workspace/SCAN_LOG
     if log_path.exists():
-        with open(log_path) as f:
+        with open(log_path, encoding="utf-8") as f:
             return json.load(f)
     return {"scans": []}
 
@@ -227,7 +227,7 @@ def cmd_scan(source_dir: Path, workspace: Path, batch_name: str | None = None):
         start = time.time()
         try:
             result = idk.code_iscc(str(filepath))
-            meta = result.dict(exclude_none=True)
+            meta = result.model_dump(exclude_none=True)
         except Exception as e:
             print(f" … failed ({str(e)[:60]})")
             errors.append({"file": str(rel_path), "error": str(e)})
@@ -294,7 +294,7 @@ def cmd_compile(workspace: Path, threshold: int = DEFAULT_THRESHOLD):
 
     for sf in sidecar_files:
         try:
-            with open(sf) as f:
+            with open(sf, encoding="utf-8") as f:
                 meta = json.load(f)
         except Exception:
             load_errors += 1
